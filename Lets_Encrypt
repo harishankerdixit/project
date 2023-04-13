@@ -1,0 +1,197 @@
+How To Secure Apache with Let's Encrypt on Ubuntu 20.04
+
+
+#Introduction
+Let’s Encrypt is a Certificate Authority (CA) that facilitates obtaining and installing free TLS/SSL certificates, thereby enabling encrypted HTTPS on web servers. It simplifies the process by providing a software client, Certbot, that attempts to automate most (if not all) of the required steps. Currently, the entire process of obtaining and installing a certificate is fully automated on both Apache and Nginx.
+
+In this guide, we’ll use Certbot to obtain a free SSL certificate for Apache on Ubuntu 20.04, and make sure this certificate is set up to renew automatically.
+
+This tutorial uses a separate virtual host file instead of Apache’s default configuration file for setting up the website that will be secured by Let’s Encrypt. We recommend creating new Apache virtual host files for each domain hosted in a server, because it helps to avoid common mistakes and maintains the default configuration files as a fallback setup.
+
+
+
+
+#Prerequisites
+To follow this tutorial, you will need:
+
+One Ubuntu 20.04 server set up by following this initial server setup for Ubuntu 20.04 tutorial, including a sudo non-root user and a firewall.
+
+A fully registered domain name. This tutorial will use your_domain as an example throughout. You can purchase a domain name on Namecheap, get one for free on Freenom, or use the domain registrar of your choice.
+
+Both of the following DNS records set up for your server. You can follow this introduction to DigitalOcean DNS for details on how to add them.
+
+An A record with your_domain pointing to your server’s public IP address.
+
+An A record with www.your_domain pointing to your server’s public IP address.
+
+Apache installed by following How To Install Apache on Ubuntu 20.04. Be sure that you have a virtual host file for your domain. This tutorial will use /etc/apache2/sites-available/your_domain.conf as an example.
+
+
+
+#  Step 1 — Installing Certbot
+
+
+           sudo apt install certbot python3-certbot-apache
+
+
+#  Step 2 — Checking your Apache Virtual Host Configuration.
+
+
+           sudo nano /etc/apache2/sites-available/your_domain.conf
+
+  Find the existing ServerName and ServerAlias lines. They should look like this:
+
+
+       /etc/apache2/sites-available/your_domain.conf
+
+
+           ...
+           ServerName your_domain
+           ServerAlias www.your_domain
+           ...
+
+
+     
+     ->>  sudo apache2ctl configtest
+
+     ->>  sudo systemctl reload apache2
+    
+     
+#  Step 3 — Allowing HTTPS Through the Firewall
+
+     ->>  sudo ufw status
+
+     ->>  sudo ufw allow 'Apache Full'
+
+     ->>  sudo ufw delete allow 'Apache'      
+
+
+
+     Your status will now look like this:
+
+     ->>  sudo ufw status
+
+
+#  Step 4 — Obtaining an SSL Certificate
+
+     ->>  sudo certbot --apache
+
+
+   
+          Output
+Saving debug log to /var/log/letsencrypt/letsencrypt.log
+Plugins selected: Authenticator apache, Installer apache
+Enter email address (used for urgent renewal and security notices) (Enter 'c' to
+cancel): you@your_domain
+After providing a valid e-mail address, hit ENTER to proceed to the next step. You will then be prompted to confirm if you agree to Let’s Encrypt terms of service. You can confirm by pressing A and then ENTER:
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Please read the Terms of Service at
+https://letsencrypt.org/documents/LE-SA-v1.2-November-15-2017.pdf. You must
+agree in order to register with the ACME server at
+https://acme-v02.api.letsencrypt.org/directory
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+(A)gree/(C)ancel: A
+Next, you’ll be asked if you would like to share your email with the Electronic Frontier Foundation to receive news and other information. If you do not want to subscribe to their content, type N. Otherwise, type Y. Then, hit ENTER to proceed to the next step.
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Would you be willing to share your email address with the Electronic Frontier
+Foundation, a founding partner of the Let's Encrypt project and the non-profit
+organization that develops Certbot? We'd like to send you email about our work
+encrypting the web, EFF news, campaigns, and ways to support digital freedom.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+(Y)es/(N)o: N   
+
+
+
+The next step will prompt you to inform Certbot of which domains you’d like to activate HTTPS for. The listed domain names are automatically obtained from your Apache virtual host configuration, that’s why it’s important to make sure you have the correct ServerName and ServerAlias settings configured in your virtual host. If you’d like to enable HTTPS for all listed domain names (recommended), you can leave the prompt blank and hit ENTER to proceed. Otherwise, select the domains you want to enable HTTPS for by listing each appropriate number, separated by commas and/ or spaces, then hit ENTER.
+
+Which names would you like to activate HTTPS for?
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+1: your_domain
+2: www.your_domain
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Select the appropriate numbers separated by commas and/or spaces, or leave input
+blank to select all options shown (Enter 'c' to cancel): 
+You’ll see output like this:
+
+Obtaining a new certificate
+Performing the following challenges:
+http-01 challenge for your_domain
+http-01 challenge for www.your_domain
+Enabled Apache rewrite module
+Waiting for verification...
+Cleaning up challenges
+Created an SSL vhost at /etc/apache2/sites-available/your_domain-le-ssl.conf
+Enabled Apache socache_shmcb module
+Enabled Apache ssl module
+Deploying Certificate to VirtualHost /etc/apache2/sites-available/your_domain-le-ssl.conf
+Enabling available site: /etc/apache2/sites-available/your_domain-le-ssl.conf
+Deploying Certificate to VirtualHost /etc/apache2/sites-available/your_domain-le-ssl.conf
+Next, you’ll be prompted to select whether or not you want HTTP traffic redirected to HTTPS. In practice, that means when someone visits your website through unencrypted channels (HTTP), they will be automatically redirected to the HTTPS address of your website. Choose 2 to enable the redirection, or 1 if you want to keep both HTTP and HTTPS as separate methods of accessing your website.
+
+Please choose whether or not to redirect HTTP traffic to HTTPS, removing HTTP access.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+1: No redirect - Make no further changes to the webserver configuration.
+2: Redirect - Make all requests redirect to secure HTTPS access. Choose this for
+new sites, or if you're confident your site works on HTTPS. You can undo this
+change by editing your web server's configuration.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Select the appropriate number [1-2] then [enter] (press 'c' to cancel): 2
+
+After this step, Certbot’s configuration is finished, and you will be presented with the final remarks about your new certificate, where to locate the generated files, and how to test your configuration using an external tool that analyzes your certificate’s authenticity:
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Congratulations! You have successfully enabled https://your_domain and
+https://www.your_domain
+
+You should test your configuration at:
+https://www.ssllabs.com/ssltest/analyze.html?d=your_domain
+https://www.ssllabs.com/ssltest/analyze.html?d=www.your_domain
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IMPORTANT NOTES:
+ - Congratulations! Your certificate and chain have been saved at:
+   /etc/letsencrypt/live/your_domain/fullchain.pem
+   Your key file has been saved at:
+   /etc/letsencrypt/live/your_domain/privkey.pem
+   Your cert will expire on 2020-07-27. To obtain a new or tweaked
+   version of this certificate in the future, simply run certbot again
+   with the "certonly" option. To non-interactively renew *all* of
+   your certificates, run "certbot renew"
+ - Your account credentials have been saved in your Certbot
+   configuration directory at /etc/letsencrypt. You should make a
+   secure backup of this folder now. This configuration directory will
+   also contain certificates and private keys obtained by Certbot so
+   making regular backups of this folder is ideal.
+ - If you like Certbot, please consider supporting our work by:
+
+   Donating to ISRG / Let's Encrypt:   https://letsencrypt.org/donate
+   Donating to EFF:                    https://eff.org/donate-le
+
+
+
+
+#  Step 5 — Verifying Certbot Auto-Renewal
+
+   
+    ->>  sudo systemctl status certbot.timer
+
+
+
+
+   You’ll get output similar to this:
+
+Output
+● certbot.timer - Run certbot twice daily
+     Loaded: loaded (/lib/systemd/system/certbot.timer; enabled; vendor preset: enabled)
+     Active: active (waiting) since Tue 2020-04-28 17:57:48 UTC; 17h ago
+    Trigger: Wed 2020-04-29 23:50:31 UTC; 12h left
+   Triggers: ● certbot.service
+
+Apr 28 17:57:48 fine-turtle systemd[1]: Started Run certbot twice daily.
+
+
+       To test the renewal process, you can do a dry run with certbot:
+
+      ->>   sudo certbot renew --dry-run
